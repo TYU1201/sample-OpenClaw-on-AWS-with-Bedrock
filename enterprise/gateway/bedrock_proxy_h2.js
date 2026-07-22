@@ -179,9 +179,15 @@ async function fastPathBedrock(userText) {
 
 function stripTrailingConversationMetadata(text) {
   if (!text) return text;
+  // Surgically remove each metadata block (header + its fenced ```json ... ```
+  // code block) wherever it appears in the text, instead of deleting from the
+  // header to the end of the string. OpenClaw's buildInboundUserContextPrefix()
+  // PREPENDS these blocks before the real user text for many channels (incl.
+  // DingTalk via dingtalk-connector) — deleting "to end of string" would wipe
+  // out real commands (e.g. "/start TOKEN") that follow the metadata blocks.
   return text
-    .replace(/\n{2,}Conversation info \(untrusted metadata\):[\s\S]*$/i, '')
-    .replace(/\n{2,}Sender \(untrusted metadata\):[\s\S]*$/i, '')
+    .replace(/\n{0,2}Conversation info \(untrusted metadata\):\s*```json[\s\S]*?```/gi, '')
+    .replace(/\n{0,2}Sender \(untrusted metadata\):\s*```json[\s\S]*?```/gi, '')
     .trim();
 }
 
@@ -228,8 +234,20 @@ function extractUserMessage(body) {
   let channel = 'unknown';
   let userId = 'unknown';
 
+  // Normalize channel identifiers reported by channel plugins.
+  // Some community connectors (e.g. dingtalk-connector) report Provider/Surface/
+  // OriginatingChannel as "<name>-connector" instead of the bare channel name
+  // (e.g. "dingtalk-connector" instead of "dingtalk"). Strip that suffix so it
+  // matches _IM_CHANNELS_REQUIRING_BINDING / DynamoDB MAPPING# keys / Portal channel ids.
+  const normalizeChannel = (c) => (c || '').toLowerCase().replace(/-connector$/, '');
+
   // Priority 0: Extract from OpenClaw's JSON metadata in message text
-  // OpenClaw embeds sender info as JSON in the conversation context
+  // OpenClaw embeds sender info as JSON in the conversation context.
+  // NOTE: this "Conversation info (untrusted metadata)" block (in the user message)
+  // only carries sender_id/sender/timestamp — it does NOT carry "channel". The
+  // channel/provider/surface fields live in the separate "Inbound Context (trusted
+  // metadata)" block injected into the system prompt (schema openclaw.inbound_meta.v1),
+  // parsed below. Do not rely on meta.channel here for the real channel name.
   try {
     const jsonMatch = originalUserText.match(/```json\s*\n([\s\S]*?)\n```/);
     if (jsonMatch) {
@@ -237,18 +255,22 @@ function extractUserMessage(body) {
       if (meta.sender_id) {
         userId = meta.sender_id;
         // Detect channel from metadata — skip placeholder values like 'unknown'/'unkn'
-        const metaChannel = (meta.channel || '').toLowerCase();
+        const metaChannel = normalizeChannel(meta.channel);
         if (metaChannel && metaChannel !== 'unknown' && metaChannel !== 'unkn') {
           channel = metaChannel;
         } else if (meta.channel_type) {
-          channel = meta.channel_type.toLowerCase();
+          channel = normalizeChannel(meta.channel_type);
         } else if (originalUserText.includes('Discord')) channel = 'discord';
         else if (originalUserText.includes('Telegram')) channel = 'telegram';
         else if (originalUserText.includes('Slack')) channel = 'slack';
         else if (originalUserText.includes('WhatsApp')) channel = 'whatsapp';
         else if (originalUserText.includes('Feishu') || originalUserText.includes('feishu')) channel = 'feishu';
+        else if (originalUserText.includes('DingTalk') || originalUserText.includes('dingtalk')) channel = 'dingtalk';
         // Heuristic fallback: detect channel by sender_id format when no keyword found
         // Telegram user IDs are 7-12 digits; Discord IDs are 17-19 digits; WhatsApp uses +phone
+        // NOTE: DingTalk numeric staffIds can also be 17-19 digits and collide with the
+        // Discord heuristic — always prefer the trusted system-prompt metadata (below)
+        // over this heuristic when available.
         else if (/^\d{7,12}$/.test(meta.sender_id)) channel = 'telegram';
         else if (/^\d{17,19}$/.test(meta.sender_id)) channel = 'discord';
         else if (/^\+\d{7,15}$/.test(meta.sender_id)) channel = 'whatsapp';
@@ -257,14 +279,18 @@ function extractUserMessage(body) {
     }
   } catch (e) { /* JSON parse failed, fall through to regex */ }
 
-  // Also try system prompt JSON metadata
+  // Also try system prompt JSON metadata (trusted "Inbound Context" block).
+  // This is the authoritative source for `channel` — parse it unconditionally
+  // (not gated on userId === 'unknown') so it can override heuristic-guessed
+  // channels from the block above, and only fall back to userId extraction
+  // here if Priority 0 didn't find one.
   try {
     const sysText = systemParts.map(p => (typeof p === 'string' ? p : p.text || '')).join(' ');
     const sysJsonMatch = sysText.match(/```json\s*\n([\s\S]*?)\n```/);
-    if (sysJsonMatch && userId === 'unknown') {
+    if (sysJsonMatch) {
       const meta = JSON.parse(sysJsonMatch[1]);
-      if (meta.sender_id) userId = meta.sender_id;
-      const sysMetaChannel = (meta.channel || '').toLowerCase();
+      if (userId === 'unknown' && meta.sender_id) userId = meta.sender_id;
+      const sysMetaChannel = normalizeChannel(meta.channel);
       if (sysMetaChannel && sysMetaChannel !== 'unknown' && sysMetaChannel !== 'unkn') {
         channel = sysMetaChannel;
       }
@@ -274,7 +300,7 @@ function extractUserMessage(body) {
       const labelMatch = sysText.match(/"label":\s*"[^"]*\((\d{10,})\)"/);
       if (labelMatch) userId = labelMatch[1];
       const chanMatch = sysText.match(/"channel":\s*"(\w+)"/i);
-      if (chanMatch) channel = chanMatch[1].toLowerCase();
+      if (chanMatch) channel = normalizeChannel(chanMatch[1]);
     }
   } catch (e) { /* fall through */ }
 
