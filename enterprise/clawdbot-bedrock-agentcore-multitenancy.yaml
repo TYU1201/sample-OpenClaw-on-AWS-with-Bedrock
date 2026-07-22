@@ -42,6 +42,7 @@ Parameters:
       - "global.anthropic.claude-sonnet-4-20250514-v1:0"
       - "us.deepseek.r1-v1:0"
       - "us.meta.llama3-3-70b-instruct-v1:0"
+      - "zai.glm-5"
 
   InstanceType:
     Type: String

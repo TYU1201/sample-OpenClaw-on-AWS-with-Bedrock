@@ -27,6 +27,7 @@ def seed(table_name: str, region: str):
             {"modelId": "global.anthropic.claude-opus-4-6-v1", "modelName": "Claude Opus 4.6", "inputRate": "15.00", "outputRate": "75.00", "enabled": False},
             {"modelId": "us.deepseek.r1-v1:0", "modelName": "DeepSeek R1", "inputRate": "0.55", "outputRate": "2.19", "enabled": False},
             {"modelId": "moonshotai.kimi-k2.5", "modelName": "Kimi K2.5", "inputRate": "0.60", "outputRate": "3.00", "enabled": False},
+            {"modelId": "zai.glm-5", "modelName": "Z.AI GLM-5", "inputRate": "1.00", "outputRate": "3.20", "enabled": True},
         ],
     })
 

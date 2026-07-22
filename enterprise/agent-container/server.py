@@ -193,6 +193,7 @@ def _write_usage_to_dynamodb(tenant_id: str, base_id: str, usage: dict, model: s
             "us.deepseek.r1-v1:0":                      {"input": 1.35, "output": 5.40},
             "us.meta.llama3-3-70b-instruct-v1:0":       {"input": 0.72, "output": 0.72},
             "moonshotai.kimi-k2.5":                      {"input": 0.60, "output": 3.00},
+            "zai.glm-5":                                  {"input": 1.00, "output": 3.20},
         }
         pricing = MODEL_PRICING.get(model, {"input": 0.30, "output": 2.50})
         cost = Decimal(str(round((input_tokens * pricing["input"] + output_tokens * pricing["output"]) / 1_000_000, 6)))
