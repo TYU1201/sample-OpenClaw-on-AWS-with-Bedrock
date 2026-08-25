@@ -51,4 +51,4 @@ Dual Deployment Modes:
 
 ## OpenClaw Version
 
-Enterprise is pinned to **OpenClaw 2026.3.24** in both `agent-container/Dockerfile` and `exec-agent/Dockerfile`. Do not upgrade — newer versions break IM channel integration.
+Enterprise is pinned to **OpenClaw 2026.7.1-2**, **Node.js 24.15.0**, and **ClawHub 0.23.3**. Versions are exact and the container image uses a versioned ECR tag. Use `bash deploy.sh --build-only` to build and smoke-test a candidate image without modifying CloudFormation, AgentCore runtimes, ECS services, or the EC2 Gateway.
