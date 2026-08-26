@@ -72,9 +72,8 @@ echo ">>> Phase 3: Setting up Python venv..."
 
 python3 -m venv /opt/admin-venv
 /opt/admin-venv/bin/pip install --upgrade pip
-/opt/admin-venv/bin/pip install \
-  fastapi uvicorn boto3 requests python-multipart anthropic \
-  "PyJWT[crypto]>=2.8.0" "bcrypt>=4.0.0"
+/opt/admin-venv/bin/pip install -r "$ADMIN_CONSOLE_DIR/server/requirements.txt"
+/opt/admin-venv/bin/pip install python-multipart anthropic
 
 # ── Phase 4: Install files ───────────────────────────────────────────────────
 
