@@ -49,19 +49,19 @@ Parameters:
 
   OpenClawVersion:
     Type: String
-    Default: "2026.7.1-2"
+    Default: "2026.10.4"
     AllowedPattern: "^[0-9]{4}\\.[0-9]+\\.[0-9]+(?:-[0-9]+)?$"
     Description: "Exact OpenClaw npm version. Do not use latest or a version range."
 
   NodeVersion:
     Type: String
-    Default: "24.15.0"
+    Default: "24.16.0"
     AllowedPattern: "^[0-9]+\\.[0-9]+\\.[0-9]+$"
     Description: "Exact Node.js version compatible with OpenClaw."
 
   AgentImageTag:
     Type: String
-    Default: "openclaw-2026.7.1-2"
+    Default: "openclaw-2026.10.4"
     AllowedPattern: "^[A-Za-z0-9_.-]{1,128}$"
     Description: "Versioned ECR tag used by AgentCore and Always-On Fargate."
 
@@ -883,7 +883,6 @@ Resources:
               "bind": "loopback",
               "controlUi": {
                 "enabled": true,
-                "allowInsecureAuth": true,
                 "root": "/usr/local/lib/node_modules/openclaw/dist/control-ui"
               },
               "auth": {

@@ -1,40 +1,41 @@
-# OpenClaw Enterprise 2026.7.1-2 升级说明
+# OpenClaw Enterprise 2026.10.4 升级说明
 
-- 更新日期：2026-08-25
+- 更新日期：2026-10-20
 - 适用范围：`enterprise/` 企业部署
 - 对应分支：`contrib/enterprise-enhancements`
-- 本文说明本分支已提交的代码和配置变更；AWS 部署、模型权限和消息渠道需在各自环境中验证。
+- 本文记录从同事 A 的 fork 继续开发后的企业版改动，以及 OpenClaw `2026.10.4` 正式版升级；AWS 部署、模型权限和消息渠道需在各自环境中验证。
 
 ## 概览
 
-本次升级将企业运行时升级到 OpenClaw `2026.7.1-2`，并固定 Node.js、ClawHub 和 Amazon Bedrock Provider 版本。改动同时覆盖 AgentCore/Fargate 容器、EC2 Gateway、CloudFormation、部署脚本、企业管理后台、Skill 授权与用量统计，以及 IM 消息绑定路由。
+本次正式发布将企业运行时升级到 OpenClaw `2026.10.4`，并固定 Node.js `24.16.0`、ClawHub `0.23.3` 和 Amazon Bedrock Provider `2026.10.4`。改动同时覆盖 AgentCore/Fargate 容器、EC2 Gateway、CloudFormation、部署脚本、企业管理后台、Skill 授权与用量统计，以及 IM 消息绑定路由。
 
 ## 固定版本与默认配置
 
 | 组件 | 版本或默认值 |
 |---|---|
-| OpenClaw | `2026.7.1-2` |
-| Node.js | `24.15.0` |
+| OpenClaw | `2026.10.4` |
+| Node.js | `24.16.0` |
 | ClawHub | `0.23.3` |
-| Amazon Bedrock Provider | `2026.7.1` |
+| Amazon Bedrock Provider | `2026.10.4` |
 | 默认模型 | `zai.glm-5` |
-| 默认镜像 Tag | `openclaw-2026.7.1-2-fix1` |
+| 正式镜像 Tag | `openclaw-2026.10.4` |
 
-`.env.example`、部署模板、种子配置和运行时默认值均已同步。生产环境应从 `.env.example` 创建本地 `.env`，不要提交真实 `.env`、密钥或 Token。
+`.env.example`、部署模板和运行时默认值均已同步。生产环境应从 `.env.example` 创建本地 `.env`，不要提交真实 `.env`、密钥或 Token。
 
 ## 运行时与镜像
 
 - Agent 容器和执行容器使用精确版本的 Node.js 与 OpenClaw，不再依赖 `latest` 或发行版 Node 包。
-- Agent 容器预装 `@openclaw/amazon-bedrock-provider`，并保留 OpenClaw 受管 npm project，避免短生命周期运行时首次请求时在线安装 Provider。
+- Agent 容器预装 `@openclaw/amazon-bedrock-provider`，为新版 Provider 显式创建指向全局 OpenClaw 安装的 peer dependency 链接，避免启动时出现 `missing-openclaw-peer-link`。
 - Runtime stage 显式重建 `npm`、`npx` 和 `openclaw` 命令链接，避免多阶段 Docker `COPY` 后 CLI 链接失效。
-- 新增 `agent-container/smoke-test.sh`，用于校验 Node、OpenClaw、Provider、npm、`openclaw agent --json` 和 Gateway ready endpoint。
+- `gateway.controlUi.allowInsecureAuth` 已移除，因为 OpenClaw `2026.10.4` 不再支持该旧配置字段。
+- `agent-container/smoke-test.sh` 校验 Node、OpenClaw、Provider、npm、`openclaw agent --json`、Provider peer link 及 Gateway 日志中的 `[gateway] ready`；启动等待上限为 150 秒，适配新版首次初始化。
 - `entrypoint.sh` 在 Gateway 启动前加载已授权 Skill 及其 SSM 凭据；Gateway 和应用进程共享相同的运行环境。
 - 支持 Gateway 在 Skill 凭据刷新后受控重启，并在关闭前尽量保留会话状态。
 - Gateway 启动诊断会筛选错误类别并脱敏 URL、Token、Secret、Password、Authorization 和 API Key。
 
 ## 部署与基础设施
 
-- `deploy.sh` 支持版本化镜像构建、验证和部署；`--build-only` 只构建、检查并推送候选镜像，不切换运行中的基础设施。
+- `deploy.sh` 支持版本化镜像构建、验证和部署；`--build-only` 只构建、检查并推送指定镜像，不切换运行中的基础设施。
 - 可通过 `IMAGE_TAG=<tag>` 选择已知镜像版本；`--skip-build --skip-seed` 可复用镜像更新服务，避免重新写入种子数据。
 - CloudFormation 新增 OpenClaw、Node 和 Agent 镜像版本参数，AgentCore/Fargate 使用版本化 ECR Tag 而非 `latest`。
 - EC2 初始化脚本按指定 Node/OpenClaw 版本升级 Gateway，并重建 systemd user service，确保服务不继续引用旧 NVM 路径。
@@ -91,8 +92,8 @@
 
 部署到测试环境后建议验证：
 
-1. 运行候选镜像构建：`bash enterprise/deploy.sh --build-only`。
-2. 确认容器 smoke test 通过，且 Gateway ready endpoint 可访问。
+1. 构建并验证发布镜像：`bash enterprise/deploy.sh --build-only`。
+2. 确认容器 smoke test 通过，且 Gateway 日志包含 `[gateway] ready`。
 3. 验证 Portal、IM、AgentCore 和 Always-On 的一次正常对话。
 4. 配置测试 Skill Key，验证管理员权限、SSM 保存、会话刷新和 Usage 统计。
 5. 验证钉钉或其他目标 IM 的 `/start <TOKEN>`、确认绑定和后续消息路由。

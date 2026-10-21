@@ -14,18 +14,18 @@
 #
 # Build:
 #   docker build --platform linux/arm64 \
-#     --build-arg OPENCLAW_VERSION=2026.7.1-2 \
-#     --build-arg NODE_VERSION=24.15.0 \
+#     --build-arg OPENCLAW_VERSION=2026.10.4 \
+#     --build-arg NODE_VERSION=24.16.0 \
 #     -f exec-agent/Dockerfile \
-#     -t <ECR_URI>:openclaw-2026.7.1-2-exec .
+#     -t <ECR_URI>:openclaw-2026.10.4-exec .
 # =============================================================================
 
 # Stage 1: Builder
 FROM --platform=linux/arm64 python:3.12-slim AS builder
 
 ARG TARGETARCH=arm64
-ARG NODE_VERSION=24.15.0
-ARG OPENCLAW_VERSION=2026.7.1-2
+ARG NODE_VERSION=24.16.0
+ARG OPENCLAW_VERSION=2026.10.4
 ARG CLAWHUB_VERSION=0.23.3
 
 RUN apt-get update && apt-get install -y --no-install-recommends \

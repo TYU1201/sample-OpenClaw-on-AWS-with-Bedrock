@@ -7,10 +7,10 @@
 FROM --platform=linux/arm64 python:3.12-slim AS builder
 
 ARG TARGETARCH=arm64
-ARG NODE_VERSION=24.15.0
-ARG OPENCLAW_VERSION=2026.7.1-2
+ARG NODE_VERSION=24.16.0
+ARG OPENCLAW_VERSION=2026.10.4
 ARG CLAWHUB_VERSION=0.23.3
-ARG BEDROCK_PROVIDER_VERSION=2026.7.1
+ARG BEDROCK_PROVIDER_VERSION=2026.10.4
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
     curl unzip git xz-utils && rm -rf /var/lib/apt/lists/*
@@ -38,6 +38,9 @@ RUN npm install -g "openclaw@${OPENCLAW_VERSION}" "clawhub@${CLAWHUB_VERSION}" \
     && mkdir -p "$PROVIDER_DIR" \
     && npm install --prefix "$PROVIDER_DIR" --save-exact \
         "@openclaw/amazon-bedrock-provider@${BEDROCK_PROVIDER_VERSION}" \
+    && PROVIDER_PACKAGE_DIR="$PROVIDER_DIR/node_modules/@openclaw/amazon-bedrock-provider" \
+    && mkdir -p "$PROVIDER_PACKAGE_DIR/node_modules" \
+    && ln -s /usr/lib/node_modules/openclaw "$PROVIDER_PACKAGE_DIR/node_modules/openclaw" \
     && node -e "const p=require('$PROVIDER_DIR/node_modules/@openclaw/amazon-bedrock-provider/package.json'); if(p.version!=='${BEDROCK_PROVIDER_VERSION}') process.exit(1)" \
     && openclaw --version | grep -F "OpenClaw ${OPENCLAW_VERSION}" \
     && clawhub --cli-version | grep -F "${CLAWHUB_VERSION}" \
