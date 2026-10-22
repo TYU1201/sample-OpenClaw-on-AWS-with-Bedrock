@@ -148,14 +148,19 @@ done
 # 1. openclaw.json baseUrl → http://localhost:8091 (read by some versions)
 # 2. AWS_ENDPOINT_URL_BEDROCK_RUNTIME env var (forces AWS SDK to route to H2 Proxy)
 GATEWAY_SERVICE="/home/ubuntu/.config/systemd/user/openclaw-gateway.service"
-# Reinstall the Gateway service with the current Node/OpenClaw paths. Keeping an
-# old unit can leave ExecStart pinned to the previous NVM version after upgrade.
+# Fully clear the previous user unit before reinstalling. OpenClaw 2026.10.x
+# inspects the existing unit definition and rejects stale or partially-written
+# files before --force can replace them.
 sudo -H -u ubuntu XDG_RUNTIME_DIR=/run/user/1000 systemctl --user stop openclaw-gateway 2>/dev/null || true
-rm -f "$GATEWAY_SERVICE"
+sudo -H -u ubuntu XDG_RUNTIME_DIR=/run/user/1000 systemctl --user disable openclaw-gateway 2>/dev/null || true
+sudo -H -u ubuntu XDG_RUNTIME_DIR=/run/user/1000 systemctl --user reset-failed openclaw-gateway 2>/dev/null || true
+rm -f "$GATEWAY_SERVICE" "/home/ubuntu/.config/systemd/user/default.target.wants/openclaw-gateway.service"
+sudo -H -u ubuntu XDG_RUNTIME_DIR=/run/user/1000 systemctl --user daemon-reload 2>/dev/null || true
+sudo -H -u ubuntu chown -R ubuntu:ubuntu /home/ubuntu/.config/systemd/user
 sudo -H -u ubuntu XDG_RUNTIME_DIR=/run/user/1000 bash -lc '
   export HOME=/home/ubuntu
   source /home/ubuntu/.nvm/nvm.sh
-  openclaw gateway install || openclaw daemon install
+  openclaw gateway install --force || openclaw daemon install --force
 '
 
 if [ ! -f "$GATEWAY_SERVICE" ]; then
